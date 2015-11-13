@@ -1,0 +1,11 @@
+#!/usr/bin/env ruby
+
+cfn = ARGV.first
+puts "Usage: #{File.basename $0} FILENAME" and exit if cfn.nil? or cfn.empty?
+
+require 'rbmk'
+
+load File.expand_path(cfn)
+
+$log = RBMK::Logger.instance
+RBMK::Server.new.start upstream || (require('rbmk/upstream') and RBMK::Upstream.new)
