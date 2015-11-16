@@ -1,28 +1,68 @@
-class RBMK::Upstream
-	require 'net/ldap'
+require 'net/ldap'
+require 'ldap/server/schema'
+# ----------------------------------------------------------
+# Raw ASN.1 filter management
+#
+class Net::LDAP::Filter
+	class Raw < self
+		class << self
+			public :new # ain't no java here
+		end
+		def initialize filter; @filter = filter end
+		def to_ber; @filter.to_der end
+	end
+end
+
+# ----------------------------------------------------------
+# Seriously poor design on their part
+#
+class Net::LDAP
+	remove_const :Entry
+	class Entry < ::Hash
+		def inspect; sprintf 'LDAP %s: %s', @dn, super end
+
+		attr_reader :dn
+		def initialize dn = nil
+			super
+			@dn = dn
+		end
+	end
+end
+
+
+
+module RBMK
+class Upstream
+	FILTER_PREFIX = '( 1.3.6.1.4.1.4203.1.12.2'
+	SPECIAL_ATS = {
+		subtreeSpecification: {s: 45, oid: '2.5.18.6', f: 's'},
+		dITStructureRules:    {s: 17, oid: '2.5.21.1', eq: :integerFirstComponentMatch},
+		dITContentRules:      {s: 16, oid: '2.5.21.2', eq: :objectIdentifierFirstComponentMatch},
+		nameForms:            {s: 35, oid: '2.5.21.7', eq: :objectIdentifierFirstComponentMatch},
+		configContext:        {s: 12, oid: '1.3.6.1.4.1.4203.1.12.2.1', f: 'sua'},
+	]
+
+	def self.host; '127.0.0.1' end
+	def self.port; 389 end
 
 	attr_reader :ldap, :root_dse, :schema
-	def initialize host, port
+	def initialize
 		@schema = LDAP::Server::Schema.new
-		@ldap = Net::LDAP.new host: host, port: port
-		@ldap.bind
+		(@ldap = Net::LDAP.new host: self.class.host, port: self.class.port).bind
 		@root_dse = fetch ''
-		sse = fetch root_dse['subschemaSubentry'].first
-		sse['attributeTypes'].each { |at| @schema.add_attrtype    at unless at.start_with? '( 1.3.6.1.4.1.4203.1.12.2' }
-		sse['objectClasses'].each  { |oc| @schema.add_objectclass oc unless oc.start_with? '( 1.3.6.1.4.1.4203.1.12.2' }
-		@schema.add_attrtype '( 2.5.18.6 NAME \'subtreeSpecification\' SYNTAX 1.3.6.1.4.1.1466.115.121.1.45 SINGLE-VALUE USAGE directoryOperation )'
-		@schema.add_attrtype '( 2.5.21.1 NAME \'dITStructureRules\' EQUALITY integerFirstComponentMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.17 USAGE directoryOperation )'
-		@schema.add_attrtype '( 2.5.21.7 NAME \'nameForms\' EQUALITY objectIdentifierFirstComponentMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.35 USAGE directoryOperation )'
-		@schema.add_attrtype '( 2.5.21.2 NAME \'dITContentRules\' EQUALITY objectIdentifierFirstComponentMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.16 USAGE directoryOperation )'
-		@schema.add_attrtype '( 1.3.6.1.4.1.4203.1.12.2.1 NAME \'configContext\' SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 SINGLE-VALUE NO-USER-MODIFICATION USAGE dSAOperation )'
+		SPECIAL_ATS.each { |name,at| @schema.add_attrtype format(name, at) }
+		ssse = fetch @root_dse['subschemaSubentry'].first
+		{add_attrtype: 'attributeTypes', add_objectclass: 'objectClasses'}.each { |meth,id| ssse[id].each { |str| @schema.send meth, str unless str.start_with? FILTER_PREFIX } }
 		@schema.resolve_oids
 	end
 
-protected
+	def fetch dn; (@ldap.search base: dn, scope: 0, attributes: ['*', '+'], ignore_server_caps: true).first end
 
-	def fetch dn
-		entries = @ldap.search base: dn, scope: 0, attributes: ['*', '+'], ignore_server_caps: true
-		entries.first
+	protected def format name, at
+		sprintf '( %s NAME %s%s SYNTAX 1.3.6.1.4.1.1466.115.121.1.%s%s%s USAGE %s )', at[:oid], name,
+			(at[:eq] ? " EQUALITY #{at[:eq]}": ''), at[:s], at[:f].include?('s') ? ' SINGLE-VALUE' : ''),
+			(at[:f].include?('u') ? ' NO-USER-MODIFICATION' : ''), (at[:f].include?('a') ? 'dSAOperation' : 'directoryOperation')
 	end
 
+end
 end

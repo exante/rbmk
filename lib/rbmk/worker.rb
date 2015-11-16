@@ -1,32 +1,29 @@
-		class Worker
+require 'ldap/server'
+require 'rbmk/operation'
+module RBMK
+class Worker
 
-			def initialize client, logger, upstream
-				@log = logger
-				@socket = client
-				@log.debug '[W] Initializing'
-				Sig.constants.each { |sig| Signal.trap Sig.const_get(sig), method(:trap) }
-				@conn = LDAP::Server::Connection.new @socket,
-					server: upstream,
-					logger: @log,
-					operation_class: MITM::Operation,
-#					operation_args: [upstream],
-					schema: upstream.schema,
-					namingContexts: upstream.root_dse['namingContexts']
-			end
+	def self.hire client, upstream; new(client, upstream).serve end
 
-			def trap sig
-				raise Terminated.new('[W] Terminated on SIG%s' % Signal.signame(sig))
-			end
+	def initialize client, upstream
+		@socket = client
+		$log.debug 'Initializing'
+		@conn = LDAP::Server::Connection.new @socket,
+			server: upstream,
+			logger: $log,
+			operation_class: RBMK::Operation,
+			schema: upstream.schema,
+			namingContexts: upstream.root_dse['namingContexts']
+	end
 
-			def serve!
-				@conn.handle_requests
-			rescue Terminated
-				@log.info $!.message
-			rescue
-				@log.error $!
-			ensure
-				@socket.close
-				@log.debug '[W] Exiting'
-			end
+	def serve
+		@conn.handle_requests
+	rescue Terminated
+		$log.info $!.message
+	ensure
+		@socket.close
+		$log.debug 'Exiting'
+	end
 
-		end
+end
+end

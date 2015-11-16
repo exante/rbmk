@@ -1,4 +1,22 @@
-module MITM
+require 'ldap/server/operation'
+class LDAP::ResultError
+
+	@map = []
+	constants.each do |const|
+		c = const_get const
+		i = c.new.send :to_i rescue nil
+		@map[i] = c if i
+	end
+
+	def self.from_id id, msg
+		@map[id].new msg
+	end
+
+end
+
+
+
+module RBMK
 class Operation < LDAP::Server::Operation
 
 	def initialize conn, msgid

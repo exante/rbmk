@@ -1,11 +1,13 @@
 RBMK
 ====
+[//]: # (DESCRIPTION START)
 This is a rather simple Ruby LDAP server that proxies operations upstream but
 at the same time provides a facility to invoke your code at certain points in
 the operation runtime. This may help to accomodate for some clients that
 are not smart enough to implement the logic you need themselves.
 LDAP is very rigid and static in its nature and although OpenLDAP provides some
 very helpful overlays, it is far from enough.
+[//]: # (DESCRIPTION STOP)
 
 CAUTION
 -------
