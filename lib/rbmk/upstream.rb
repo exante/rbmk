@@ -1,36 +1,5 @@
 require 'net/ldap'
 require 'ldap/server/schema'
-# ----------------------------------------------------------
-# Raw ASN.1 filter management
-#
-class Net::LDAP::Filter
-	class Raw < self
-		class << self
-			public :new # ain't no java here
-		end
-		def initialize filter; @filter = filter end
-		def to_ber; @filter.to_der end
-	end
-end
-
-# ----------------------------------------------------------
-# Seriously poor design on their part
-#
-class Net::LDAP
-	remove_const :Entry
-	class Entry < ::Hash
-		def inspect; sprintf 'LDAP %s: %s', @dn, super end
-
-		attr_reader :dn
-		def initialize dn = nil
-			super
-			@dn = dn
-		end
-	end
-end
-
-
-
 module RBMK
 class Upstream
 	FILTER_PREFIX = '( 1.3.6.1.4.1.4203.1.12.2'
@@ -40,7 +9,7 @@ class Upstream
 		dITContentRules:      {s: 16, oid: '2.5.21.2', eq: :objectIdentifierFirstComponentMatch},
 		nameForms:            {s: 35, oid: '2.5.21.7', eq: :objectIdentifierFirstComponentMatch},
 		configContext:        {s: 12, oid: '1.3.6.1.4.1.4203.1.12.2.1', f: 'sua'},
-	]
+	}
 
 	def self.host; '127.0.0.1' end
 	def self.port; 389 end
@@ -59,9 +28,9 @@ class Upstream
 	def fetch dn; (@ldap.search base: dn, scope: 0, attributes: ['*', '+'], ignore_server_caps: true).first end
 
 	protected def format name, at
-		sprintf '( %s NAME %s%s SYNTAX 1.3.6.1.4.1.1466.115.121.1.%s%s%s USAGE %s )', at[:oid], name,
-			(at[:eq] ? " EQUALITY #{at[:eq]}": ''), at[:s], at[:f].include?('s') ? ' SINGLE-VALUE' : ''),
-			(at[:f].include?('u') ? ' NO-USER-MODIFICATION' : ''), (at[:f].include?('a') ? 'dSAOperation' : 'directoryOperation')
+		sprintf '( %s NAME \'%s\'%s SYNTAX 1.3.6.1.4.1.1466.115.121.1.%s%s%s USAGE %s )', at[:oid], name,
+			(at[:eq] ? " EQUALITY #{at[:eq]}": ''), at[:s], ((at[:f] and at[:f].include?('s')) ? ' SINGLE-VALUE' : ''),
+			((at[:f] and at[:f].include?('u')) ? ' NO-USER-MODIFICATION' : ''), ((at[:f] and at[:f].include?('a')) ? 'dSAOperation' : 'directoryOperation')
 	end
 
 end

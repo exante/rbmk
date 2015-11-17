@@ -1,6 +1,29 @@
+require 'net/ldap/filter'
 require 'ldap/server/operation'
-class LDAP::ResultError
 
+class Net::LDAP::Filter
+	class Raw < self
+		class << self
+			public :new # ain't no java here
+		end
+		def initialize filter; @filter = filter end
+		def to_ber; @filter.to_der end
+	end
+end
+
+class Net::LDAP
+	remove_const :Entry
+	class Entry < ::Hash
+		attr_reader :dn
+		def initialize dn = nil
+			super
+			@dn = dn
+		end
+		def inspect; sprintf 'LDAP %s: %s', @dn, super end
+	end
+end
+
+class LDAP::ResultError
 	@map = []
 	constants.each do |const|
 		c = const_get const
@@ -11,7 +34,6 @@ class LDAP::ResultError
 	def self.from_id id, msg
 		@map[id].new msg
 	end
-
 end
 
 
@@ -90,7 +112,10 @@ class Operation < LDAP::Server::Operation
 		@typesOnly = op.value[5].value
 		filter = LDAP::Server::Filter.parse(op.value[6], @schema)
 		@attributes = op.value[7].value.collect {|x| x.value}
-		debug "Search #{filter.inspect} from \"#{baseObject}\", scope: #{scope.to_i}, deref: #{deref.to_i}, attrs: #{@attributes.inspect}, no_values: #{@typesOnly}, max: #{@sizelimit.inspect}"
+#		debug "Search #{filter.inspect} from \"#{baseObject}\", scope: #{scope.to_i}, deref: #{deref.to_i}, attrs: #{@attributes.inspect}, no_values: #{@typesOnly}, max: #{@sizelimit.inspect}"
+
+		fil = Net::LDAP::Filter.parse_ber(@raw_filter.to_ber.read_ber).to_raw_rfc2254
+		debug "Search #{fil} from \"#{baseObject}\", scope: #{scope.to_i}, deref: #{deref.to_i}, attrs: #{@attributes.inspect}, no_values: #{@typesOnly}, max: #{@sizelimit.inspect}"
 
 		@rescount = 0
 		@sizelimit = server_sizelimit
@@ -101,9 +126,7 @@ class Operation < LDAP::Server::Operation
 			send_SearchResultDone(0)
 			return
 		elsif @schema and baseObject == @schema.subschema_dn
-			end_SearchResultEntry(baseObject, @schema.subschema_subentry) if
-			@schema and @schema.subschema_subentry and
-			LDAP::Server::Filter.run(filter, @schema.subschema_subentry)
+			send_SearchResultEntry(baseObject, @schema.subschema_subentry) if @schema and @schema.subschema_subentry and LDAP::Server::Filter.run(filter, @schema.subschema_subentry)
 			send_SearchResultDone(0)
 			return
 		end
@@ -138,8 +161,8 @@ class Operation < LDAP::Server::Operation
 protected
 
 	def transformed entries
-		return entries unless MITM.respond_to? :transform
-		MITM.transform entries
+		return entries unless RBMK.respond_to? :transform
+		RBMK.transform entries
 	rescue
 		@connection.log_exception $!
 		entries

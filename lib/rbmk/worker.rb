@@ -7,7 +7,6 @@ class Worker
 
 	def initialize client, upstream
 		@socket = client
-		$log.debug 'Initializing'
 		@conn = LDAP::Server::Connection.new @socket,
 			server: upstream,
 			logger: $log,
@@ -22,7 +21,6 @@ class Worker
 		$log.info $!.message
 	ensure
 		@socket.close
-		$log.debug 'Exiting'
 	end
 
 end

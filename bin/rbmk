@@ -4,9 +4,12 @@ cfn = ARGV.first
 (puts "Usage: #{File.basename $0} FILENAME"; exit) if cfn.nil? or cfn.empty?
 
 require 'rbmk/logger'
+require 'rbmk/upstream'
 require 'rbmk/server'
+require 'rbmk/worker'
 
 load File.expand_path(cfn)
 
 $log = RBMK::Logger.instance
-RBMK::Server.new.start upstream || (require('rbmk/upstream') and RBMK::Upstream.new)
+
+RBMK::Server.new.start
