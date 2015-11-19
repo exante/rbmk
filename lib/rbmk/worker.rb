@@ -6,6 +6,7 @@ class Worker
 	def self.hire client, upstream; new(client, upstream).serve end
 
 	def initialize client, upstream
+		upstream.mktemp
 		@socket = client
 		@conn = LDAP::Server::Connection.new @socket,
 			server: upstream,
@@ -17,8 +18,6 @@ class Worker
 
 	def serve
 		@conn.handle_requests
-	rescue Terminated
-		$log.info $!.message
 	ensure
 		@socket.close
 	end

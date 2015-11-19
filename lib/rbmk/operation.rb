@@ -1,27 +1,27 @@
-require 'net/ldap/filter'
+#require 'net/ldap/filter'
 require 'ldap/server/operation'
 
-class Net::LDAP::Filter
-	class Raw < self
-		class << self
-			public :new # ain't no java here
-		end
-		def initialize filter; @filter = filter end
-		def to_ber; @filter.to_der end
-	end
-end
-
-class Net::LDAP
-	remove_const :Entry
-	class Entry < ::Hash
-		attr_reader :dn
-		def initialize dn = nil
-			super
-			@dn = dn
-		end
-		def inspect; sprintf 'LDAP %s: %s', @dn, super end
-	end
-end
+# class Net::LDAP::Filter
+# 	class Raw < self
+# 		class << self
+# 			public :new # ain't no java here
+# 		end
+# 		def initialize filter; @filter = filter end
+# 		def to_ber; @filter.to_der end
+# 	end
+# end
+# 
+# class Net::LDAP
+# 	remove_const :Entry
+# 	class Entry < ::Hash
+# 		attr_reader :dn
+# 		def initialize dn = nil
+# 			super
+# 			@dn = dn
+# 		end
+# 		def inspect; sprintf 'LDAP %s: %s', @dn, super end
+# 	end
+# end
 
 class LDAP::ResultError
 	@map = []
@@ -31,7 +31,7 @@ class LDAP::ResultError
 		@map[i] = c if i
 	end
 
-	def self.from_id id, msg
+	def self.from_id id, msg = nil
 		@map[id].new msg
 	end
 end
@@ -41,25 +41,14 @@ end
 module RBMK
 class Operation < LDAP::Server::Operation
 
-	def initialize conn, msgid
-		super conn, msgid
-		@ldap = @server.ldap
-	end
-
-	def check_upstream
-		upstream = @ldap.get_operation_result
-		return if upstream.code < 1
-		debug 'Upstream: %s' % upstream.inspect
-		raise LDAP::ResultError.from_id(upstream.code, upstream.message)
-	end
+	def ldap; @server.ldap end
 
 	def simple_bind version, dn, password
-		@ldap.auth dn, password if dn
-		debug "Bind v.#{version.to_i}, auth: #{@ldap.instance_variable_get(:@auth).reject {|k|:password == k}.inspect}"
-		result = @ldap.bind
-		debug "Bind result: #{result}"
-		check_upstream
-		result
+		debug "Bind v#{version.to_i}, dn: #{dn.inspect}"
+		@server.bind version, dn, password
+	rescue LDAP::ResultError
+		$!.log_debug
+		raise $!
 	end
 
 	def send_SearchResultEntry(dn, avs, opt={})
@@ -103,7 +92,7 @@ class Operation < LDAP::Server::Operation
 	end
 
 	def do_search op, controls
-		@raw_filter = Net::LDAP::Filter::Raw.new op.value[6]
+#		@raw_filter = Net::LDAP::Filter::Raw.new op.value[6]
 		baseObject = op.value[0].value
 		scope = op.value[1].value
 		deref = op.value[2].value
@@ -114,8 +103,8 @@ class Operation < LDAP::Server::Operation
 		@attributes = op.value[7].value.collect {|x| x.value}
 #		debug "Search #{filter.inspect} from \"#{baseObject}\", scope: #{scope.to_i}, deref: #{deref.to_i}, attrs: #{@attributes.inspect}, no_values: #{@typesOnly}, max: #{@sizelimit.inspect}"
 
-		fil = Net::LDAP::Filter.parse_ber(@raw_filter.to_ber.read_ber).to_raw_rfc2254
-		debug "Search #{fil} from \"#{baseObject}\", scope: #{scope.to_i}, deref: #{deref.to_i}, attrs: #{@attributes.inspect}, no_values: #{@typesOnly}, max: #{@sizelimit.inspect}"
+#		fil = Net::LDAP::Filter.parse_ber(@raw_filter.to_ber.read_ber).to_raw_rfc2254
+#		debug "Search #{fil} from \"#{baseObject}\", scope: #{scope.to_i}, deref: #{deref.to_i}, attrs: #{@attributes.inspect}, no_values: #{@typesOnly}, max: #{@sizelimit.inspect}"
 
 		@rescount = 0
 		@sizelimit = server_sizelimit

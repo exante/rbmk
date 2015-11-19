@@ -1,9 +1,4 @@
-class Exception
-	def log; $log.error sprintf('%s: %s (%s)', backtrace.first, message, self.class) end
-end
-
-
-
+require 'rbmk/exception'
 module RBMK
 module Logger
 

@@ -4,10 +4,12 @@ Gem::Specification.new do |s|
 	s.files = [
 		'bin/rbmk',
 		'examples/rbmk.rb',
+		'lib/rbmk/exception.rb',
 		'lib/rbmk/logger.rb',
 		'lib/rbmk/operation.rb',
 		'lib/rbmk/peer.rb',
 		'lib/rbmk/server.rb',
+		'lib/rbmk/signal.rb',
 		'lib/rbmk/upstream.rb',
 		'lib/rbmk/version.rb',
 		'lib/rbmk/worker.rb',
@@ -25,6 +27,6 @@ Gem::Specification.new do |s|
 	s.author = 'stronny red'
 	s.email = 'stronny@celestia.ru'
 	s.homepage = 'https://github.com/stronny/rbmk'
-	s.add_dependency 'net-ldap', '~> 0.12.0'
+	s.add_dependency 'ruby-ldap', '~> 0.9.17'
 	s.add_dependency 'ruby-ldapserver', '~> 0.5.3'
 end
