@@ -1,27 +1,6 @@
-#require 'net/ldap/filter'
 require 'ldap/server/operation'
 
-# class Net::LDAP::Filter
-# 	class Raw < self
-# 		class << self
-# 			public :new # ain't no java here
-# 		end
-# 		def initialize filter; @filter = filter end
-# 		def to_ber; @filter.to_der end
-# 	end
-# end
-# 
-# class Net::LDAP
-# 	remove_const :Entry
-# 	class Entry < ::Hash
-# 		attr_reader :dn
-# 		def initialize dn = nil
-# 			super
-# 			@dn = dn
-# 		end
-# 		def inspect; sprintf 'LDAP %s: %s', @dn, super end
-# 	end
-# end
+
 
 class LDAP::ResultError
 	@map = []
@@ -38,19 +17,52 @@ end
 
 
 
+class LDAP::Server::Filter
+	def self.to_rfc filter
+		raise ArgumentError, 'Array expected' unless filter.is_a? Array
+		raise ArgumentError, 'Filter is empty' if filter.empty?
+		op = filter.shift
+		res = case op
+			when :not then
+				raise 'Empty subfilter' if (sf = to_rfc filter).empty?
+				'!%s' % sf
+			when :and then
+				raise 'Empty subfilter' if (sf = filter.map { |f| to_rfc(f) }.join).empty?
+				'&%s' % sf
+			when :or
+				raise 'Empty subfilter' if (sf = filter.map { |f| to_rfc(f) }.join).empty?
+				'!%s' % sf
+
+			when :true       then 'objectClass=*'
+			when :false      then '!(objectClass=*)'
+			when :undef      then raise 'Undefined filter has no RFC representation'
+
+			when :present    then sprintf '%s=*',   filter.first
+			when :eq         then sprintf '%s=%s',  filter.first, filter.last
+			when :approx     then sprintf '%s~=%s', filter.first, filter.last
+			when :ge         then sprintf '%s>=%s', filter.first, filter.last
+			when :le         then sprintf '%s<=%s', filter.first, filter.last
+			when :substrings then
+				attr = filter.shift
+				junk = filter.shift
+				'%s=%s' % [attr, filter.join('*')]
+			else raise 'Unknown op %s' % op.inspect
+		end
+		'(%s)' % res
+	rescue
+		$!.log_debug
+		''
+	end
+end
+
+
+
+require 'rbmk'
 module RBMK
 class Operation < LDAP::Server::Operation
 
-	def ldap; @server.ldap end
-
-	def simple_bind version, dn, password
-		debug "Bind v#{version.to_i}, dn: #{dn.inspect}"
-		@server.bind version, dn, password
-	rescue LDAP::ResultError
-		$!.log_debug
-		raise $!
-	end
-
+	# First some patches
+	#
 	def send_SearchResultEntry(dn, avs, opt={})
 		@rescount += 1
 		if @sizelimit
@@ -92,7 +104,6 @@ class Operation < LDAP::Server::Operation
 	end
 
 	def do_search op, controls
-#		@raw_filter = Net::LDAP::Filter::Raw.new op.value[6]
 		baseObject = op.value[0].value
 		scope = op.value[1].value
 		deref = op.value[2].value
@@ -101,17 +112,13 @@ class Operation < LDAP::Server::Operation
 		@typesOnly = op.value[5].value
 		filter = LDAP::Server::Filter.parse(op.value[6], @schema)
 		@attributes = op.value[7].value.collect {|x| x.value}
-#		debug "Search #{filter.inspect} from \"#{baseObject}\", scope: #{scope.to_i}, deref: #{deref.to_i}, attrs: #{@attributes.inspect}, no_values: #{@typesOnly}, max: #{@sizelimit.inspect}"
-
-#		fil = Net::LDAP::Filter.parse_ber(@raw_filter.to_ber.read_ber).to_raw_rfc2254
-#		debug "Search #{fil} from \"#{baseObject}\", scope: #{scope.to_i}, deref: #{deref.to_i}, attrs: #{@attributes.inspect}, no_values: #{@typesOnly}, max: #{@sizelimit.inspect}"
 
 		@rescount = 0
 		@sizelimit = server_sizelimit
 		@sizelimit = client_sizelimit if client_sizelimit > 0 and (@sizelimit.nil? or client_sizelimit < @sizelimit)
 
 		if baseObject.empty? and scope == LDAP::Server::BaseObject
-			send_SearchResultEntry("", @server.root_dse) if @server.root_dse and LDAP::Server::Filter.run(filter, @server.root_dse)
+			send_SearchResultEntry('', @server.root_dse) if @server.root_dse and LDAP::Server::Filter.run(filter, @server.root_dse)
 			send_SearchResultDone(0)
 			return
 		elsif @schema and baseObject == @schema.subschema_dn
@@ -135,26 +142,41 @@ class Operation < LDAP::Server::Operation
 		send_SearchResultDone(LDAP::ResultError::OperationsError.new.to_i, :errorMessage=>e.message)
 	end
 
-	def search basedn, scope, deref, filter
-		entries = @ldap.search base: basedn, filter: @raw_filter, scope: scope.to_i, deref: deref.to_i, attributes: ['*', '+'], size: @sizelimit.to_i
-#pp entries
-		check_upstream
-		transformed(entries).each { |entry| send_SearchResultEntry entry.dn, entry }
+
+
+	# Okay, now the actual code
+	#
+	def simple_bind version, dn, password
+		RBMK.context[:binddn] = {orig: dn}
+		version, dn, password = transformed(simple_bind: [version, dn, password])
+		RBMK.context[:binddn][:hacked] = dn
+		$log.info sprintf('Bind v%i, dn: %p -> %p', version, RBMK.context[:binddn][:orig], RBMK.context[:binddn][:hacked])
+		@server.bind version, dn, password
+	rescue LDAP::ResultError
+		$!.log_debug
+		raise $!
 	end
 
-	def compare entry, attr, val
-		p compare: [entry, attr, val]
-		super entry, attr, val
+	def search basedn, scope, deref, filter
+		RBMK.context[:filter] = {orig: filter, hacked: transformed(filter: filter)}
+		filter = LDAP::Server::Filter.to_rfc RBMK.context[:filter][:hacked]
+		$log.info sprintf('Search %p from %p, scope: %i, deref: %i, attrs: %p, no_values: %s, max: %i', filter, basedn, scope, deref, @attributes, @typesOnly, (@sizelimit.to_i rescue 0))
+		entries = @server.ldap.search_ext2 basedn, scope, filter, ['*', '+'], @typesOnly, nil, nil, 0, 0, (@sizelimit.to_i rescue 0)
+#require 'pp'
+#pp entries
+		transformed(entries: entries).each { |entry| send_SearchResultEntry entry.delete('dn').first, entry }
+	rescue LDAP::ResultError
+		@server.handle_ldap_error
 	end
 
 protected
 
-	def transformed entries
-		return entries unless RBMK.respond_to? :transform
-		RBMK.transform entries
+	def transformed spec
+		raise ArgumentError.new('Please provide a hash with exactly one key.') unless (spec.is_a? Hash) and (1 == spec.count)
+		spec.each { |type, object| return RBMK.send "hack_#{type}".to_sym, object }
 	rescue
-		@connection.log_exception $!
-		entries
+		$!.log
+		object
 	end
 
 end

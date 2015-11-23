@@ -4,6 +4,7 @@ Gem::Specification.new do |s|
 	s.files = [
 		'bin/rbmk',
 		'examples/rbmk.rb',
+		'lib/rbmk.rb',
 		'lib/rbmk/exception.rb',
 		'lib/rbmk/logger.rb',
 		'lib/rbmk/operation.rb',

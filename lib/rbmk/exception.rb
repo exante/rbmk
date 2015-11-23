@@ -5,7 +5,7 @@ class Exception
 	end
 
 	def log_debug
-		$log.debug sprintf('%i: %s (%s)', to_i, message, self.class)
+		$log.debug sprintf('%s: %s (%s)', (to_i rescue 'n/a'), message, self.class)
 	end
 
 end

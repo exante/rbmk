@@ -1,3 +1,4 @@
+require 'timeout'
 require 'rbmk/peer'
 require 'rbmk/signal'
 module RBMK
@@ -30,6 +31,7 @@ protected
 
 	def self.host; '127.0.0.1' end
 	def self.port; 8389 end
+	def self.worker_timeout; 600 end # (in seconds) this is not per single request, this is for the whole session
 
 	def self.upstream
 		require 'rbmk/upstream'
@@ -68,7 +70,7 @@ protected
 		$master = false
 		remove_instance_variable :@workers
 		$0 = sprintf '%s worker for %s', @arvg0, peer
-		serve client
+		Timeout.timeout(self.class.worker_timeout) { serve client } # FIXME shall move to master in the future
 	rescue Exception
 		$!.log
 	ensure

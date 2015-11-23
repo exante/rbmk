@@ -19,12 +19,25 @@ module RBMK::Logger
 end
 
 # The magic! You can transform the found entries here
-# For example, we can add a fooBar attribute to any resulting object
 #
 module RBMK
-	def self.transform entries
+	# For example, we can add a fooBar attribute to any resulting object
+	#
+	def self.hack_entries entries
 		entries.map do |entry|
 			entry.merge 'fooBar' => 'baz'
 		end
 	end
+
+	# In this example we drop fooBar attribute from anywhere in the search
+	#
+	def self.hack_filter filter
+		op = filter.shift
+		case op
+			when :true, :false, :undef then [op]
+			when :not,  :and,   :or    then [op] + filter.map { |sf| hack_filter sf }.compact
+			else (filter.first =~ /\Afoobar\z/i) ? nil : [op] + filter
+		end
+	end
+
 end

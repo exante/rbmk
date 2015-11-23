@@ -36,9 +36,9 @@ class Upstream
 	end
 
 	def handle_ldap_error
-		stderr = from_stderr { @ldap.perror 'LDAP' }              # WHY U NO?
-		message = stderr.match(/additional info:(.*)$/)[1]        # Seriously, how hard can it be to expose a server's message?
-		raise LDAP::ResultError.from_id(@ldap.err, message.strip) # FUCK ME WHY SHOULD I EVER PARSE MY OWN STDERR
+		stderr = from_stderr { @ldap.perror 'LDAP' }                        # WHY U NO?
+		message = stderr.match(/additional info:(.*)$/)[1].strip rescue nil # Seriously, how hard can it be to expose a server's message?
+		raise LDAP::ResultError.from_id(@ldap.err, message)                 # FUCK ME WHY SHOULD I EVER PARSE MY OWN STDERR
 	end
 
 	def mktemp
