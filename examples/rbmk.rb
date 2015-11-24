@@ -18,26 +18,22 @@ module RBMK::Logger
 	def self.level; ::Logger::DEBUG end
 end
 
-# The magic! You can transform the found entries here
+# The magic! You can transform the LDAP operations
 #
-module RBMK
+module RBMK::Transform
+
 	# For example, we can add a fooBar attribute to any resulting object
 	#
-	def self.hack_entries entries
+	def self.entries entries
 		entries.map do |entry|
 			entry.merge 'fooBar' => 'baz'
 		end
 	end
 
-	# In this example we drop fooBar attribute from anywhere in the search
+	# In this example we override atrributes in the request so that all of them are requested all the time
 	#
-	def self.hack_filter filter
-		op = filter.shift
-		case op
-			when :true, :false, :undef then [op]
-			when :not,  :and,   :or    then [op] + filter.map { |sf| hack_filter sf }.compact
-			else (filter.first =~ /\Afoobar\z/i) ? nil : [op] + filter
-		end
+	def self.search opts
+		opts.merge attrs: ['*', '+']
 	end
 
 end

@@ -18,19 +18,20 @@ end
 
 
 class LDAP::Server::Filter
-	def self.to_rfc filter
-		raise ArgumentError, 'Array expected' unless filter.is_a? Array
-		raise ArgumentError, 'Filter is empty' if filter.empty?
+	def self.to_rfc preserved_filter
+		raise ArgumentError, 'Array expected' unless preserved_filter.is_a? Array
+		raise ArgumentError, 'Filter is empty' if preserved_filter.empty?
+		filter = preserved_filter.clone
 		op = filter.shift
 		res = case op
 			when :not then
-				raise 'Empty subfilter' if (sf = to_rfc filter).empty?
+				raise 'Empty subfilter' if (sf = send(__method__, filter)).empty?
 				'!%s' % sf
 			when :and then
-				raise 'Empty subfilter' if (sf = filter.map { |f| to_rfc(f) }.join).empty?
+				raise 'Empty subfilter' if (sf = filter.map { |f| send(__method__, f) }.join).empty?
 				'&%s' % sf
 			when :or
-				raise 'Empty subfilter' if (sf = filter.map { |f| to_rfc(f) }.join).empty?
+				raise 'Empty subfilter' if (sf = filter.map { |f| send(__method__, f) }.join).empty?
 				'!%s' % sf
 
 			when :true       then 'objectClass=*'
@@ -57,7 +58,7 @@ end
 
 
 
-require 'rbmk'
+require 'rbmk/transform'
 module RBMK
 class Operation < LDAP::Server::Operation
 
@@ -143,27 +144,43 @@ class Operation < LDAP::Server::Operation
 	end
 
 
-
+	# --------------------------------------------------------------------------
 	# Okay, now the actual code
 	#
+	def initialize conn, mid
+		super conn, mid
+		@orig = {}
+		@transformed = {}
+	end
+
 	def simple_bind version, dn, password
-		RBMK.context[:binddn] = {orig: dn}
-		version, dn, password = transformed(simple_bind: [version, dn, password])
-		RBMK.context[:binddn][:hacked] = dn
-		$log.info sprintf('Bind v%i, dn: %p -> %p', version, RBMK.context[:binddn][:orig], RBMK.context[:binddn][:hacked])
-		@server.bind version, dn, password
+		orig = {version: version, dn: dn, password: password}
+		opts = transformed __method__ => orig.clone
+		$log.info sprintf('Bind version: %s, dn: %s',
+			log_chunk(orig, opts, '%i', :version),
+			log_chunk(orig, opts, '%p', :dn)
+		)
+		@server.bind *opts.values_at(:version, :dn, :password)
 	rescue LDAP::ResultError
 		$!.log_debug
 		raise $!
 	end
 
-	def search basedn, scope, deref, filter
-		RBMK.context[:filter] = {orig: filter, hacked: transformed(filter: filter)}
-		filter = LDAP::Server::Filter.to_rfc RBMK.context[:filter][:hacked]
-		$log.info sprintf('Search %p from %p, scope: %i, deref: %i, attrs: %p, no_values: %s, max: %i', filter, basedn, scope, deref, @attributes, @typesOnly, (@sizelimit.to_i rescue 0))
-		entries = @server.ldap.search_ext2 basedn, scope, filter, ['*', '+'], @typesOnly, nil, nil, 0, 0, (@sizelimit.to_i rescue 0)
-#require 'pp'
-#pp entries
+	def search base, scope, deref, filter
+		orig = {filter_array: filter, base: base, scope: scope, deref: deref, attrs: @attributes, vals: (not @typesOnly), limit: (@sizelimit.to_i rescue 0)}
+		opts = transformed __method__ => orig.clone
+		orig[:filter_string] = LDAP::Server::Filter.to_rfc orig[:filter_array]
+		opts[:filter_string] = LDAP::Server::Filter.to_rfc opts[:filter_array]
+		$log.info sprintf('Search %s from %s, scope: %s, deref: %s, attrs: %s, vals: %s, limit: %s',
+			log_chunk(orig, opts, '%p', :filter_string),
+			log_chunk(orig, opts, '%p', :base),
+			log_chunk(orig, opts, '%i', :scope),
+			log_chunk(orig, opts, '%i', :deref),
+			log_chunk(orig, opts, '%p', :attrs),
+			log_chunk(orig, opts, '%s', :vals),
+			log_chunk(orig, opts, '%i', :limit),
+		)
+		entries = @server.ldap.search_ext2(*opts.values_at(:base, :scope, :filter_string, :attrs), (not opts[:vals]), nil, nil, 0, 0, opts[:limit])
 		transformed(entries: entries).each { |entry| send_SearchResultEntry entry.delete('dn').first, entry }
 	rescue LDAP::ResultError
 		@server.handle_ldap_error
@@ -171,9 +188,24 @@ class Operation < LDAP::Server::Operation
 
 protected
 
+	def log_chunk orig, transformed, format, key
+		if orig[key] === transformed[key] then
+			format % orig[key]
+		else
+			sprintf "(#{format} -> #{format})", orig[key], transformed[key]
+		end
+	rescue
+		p orig, transformed, format, key
+		raise $!
+	end
+
 	def transformed spec
 		raise ArgumentError.new('Please provide a hash with exactly one key.') unless (spec.is_a? Hash) and (1 == spec.count)
-		spec.each { |type, object| return RBMK.send "hack_#{type}".to_sym, object }
+		spec.each do |type, object|
+			@orig[type] = object
+			transformed = RBMK::Transform.send type, object
+			return @transformed[type] = transformed
+		end
 	rescue
 		$!.log
 		object
