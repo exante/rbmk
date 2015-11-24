@@ -1,4 +1,4 @@
 module RBMK
-	VERSION = '0.1.0.b'
-	CODENAME = 'break the black ice'
+	VERSION = '0.1.0.c'
+	CODENAME = 'as pure as'
 end
