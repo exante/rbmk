@@ -190,12 +190,15 @@ protected
 
 	def log_chunk orig, transformed, format, key
 		if orig[key] === transformed[key] then
-			format % orig[key]
+			sprintf format, orig[key]
 		else
 			sprintf "(#{format} -> #{format})", orig[key], transformed[key]
 		end
 	rescue
-		p orig, transformed, format, key
+		debug "orig: #{orig.inspect}"
+		debug "transformed: #{transformed.inspect}"
+		debug "format: #{format.inspect}"
+		debug "key: #{key.inspect}"
 		raise $!
 	end
 
