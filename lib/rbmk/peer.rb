@@ -1,9 +1,14 @@
 module RBMK
 class Peer
 
+	attr_accessor :socket, :host, :port
 	def initialize client
-		@host = client.peeraddr[3]
-		@port = client.peeraddr[1]
+		@socket = client
+		@host, @port = client.peeraddr.values_at 3, 1
+	end
+
+	def close
+		@socket.close
 	end
 
 	def to_s

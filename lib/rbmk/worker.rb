@@ -1,14 +1,15 @@
 require 'ldap/server'
 require 'rbmk/operation'
+require 'rbmk/peer'
 module RBMK
 class Worker
 
-	def self.hire client, upstream; new(client, upstream).serve end
+	def self.hire peer, upstream; new(peer, upstream).serve end
 
-	def initialize client, upstream
+	def initialize peer, upstream
 		upstream.mktemp
-		@socket = client
-		@conn = LDAP::Server::Connection.new @socket,
+		@peer = peer
+		@conn = LDAP::Server::Connection.new @peer.socket,
 			server: upstream,
 			logger: $log,
 			operation_class: RBMK::Operation,
@@ -19,7 +20,7 @@ class Worker
 	def serve
 		@conn.handle_requests
 	ensure
-		@socket.close
+		@peer.close
 	end
 
 end
