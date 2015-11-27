@@ -1,6 +1,5 @@
 require 'ldap/server'
 require 'rbmk/operation'
-require 'rbmk/peer'
 module RBMK
 class Worker
 

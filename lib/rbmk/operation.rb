@@ -147,6 +147,7 @@ class Operation < LDAP::Server::Operation
 	# --------------------------------------------------------------------------
 	# Okay, now the actual code
 	#
+	attr_reader :server, :orig, :transformed
 	def initialize conn, mid
 		super conn, mid
 		@orig = {}
@@ -155,7 +156,7 @@ class Operation < LDAP::Server::Operation
 
 	def simple_bind version, dn, password
 		orig = {version: version, dn: dn, password: password}
-		opts = transformed __method__ => orig.clone
+		opts = transformed __method__, orig.clone
 		$log.info sprintf('Bind version: %s, dn: %s',
 			log_chunk(orig, opts, '%i', :version),
 			log_chunk(orig, opts, '%p', :dn)
@@ -168,7 +169,7 @@ class Operation < LDAP::Server::Operation
 
 	def search base, scope, deref, filter
 		orig = {filter_array: filter, base: base, scope: scope, deref: deref, attrs: @attributes, vals: (not @typesOnly), limit: (@sizelimit.to_i rescue 0)}
-		opts = transformed __method__ => orig.clone
+		opts = transformed __method__, orig.clone
 		orig[:filter_string] = LDAP::Server::Filter.to_rfc orig[:filter_array]
 		opts[:filter_string] = LDAP::Server::Filter.to_rfc opts[:filter_array]
 		$log.info sprintf('Search %s from %s, scope: %s, deref: %s, attrs: %s, vals: %s, limit: %s',
@@ -181,7 +182,7 @@ class Operation < LDAP::Server::Operation
 			log_chunk(orig, opts, '%i', :limit),
 		)
 		entries = @server.ldap.search_ext2(*opts.values_at(:base, :scope, :filter_string, :attrs), (not opts[:vals]), nil, nil, 0, 0, opts[:limit])
-		transformed(entries: entries).each { |entry| send_SearchResultEntry entry.delete('dn').first, entry }
+		transformed(:entries, entries).each { |entry| send_SearchResultEntry entry.delete('dn').first, entry }
 	rescue LDAP::ResultError
 		@server.handle_ldap_error
 	end
@@ -202,13 +203,9 @@ protected
 		raise $!
 	end
 
-	def transformed spec
-		raise ArgumentError.new('Please provide a hash with exactly one key.') unless (spec.is_a? Hash) and (1 == spec.count)
-		spec.each do |type, object|
-			@orig[type] = object
-			transformed = RBMK::Transform.send type, object
-			return @transformed[type] = transformed
-		end
+	def transformed type, object
+		@orig[type] = object
+		@transformed[type] = RBMK::Transform.send type, object, self
 	rescue
 		$!.log
 		object

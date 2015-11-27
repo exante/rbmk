@@ -13,10 +13,29 @@ class Upstream
 		configContext:        {s: 12, oid: '1.3.6.1.4.1.4203.1.12.2.1', f: 'sua'},
 	}
 
+	def self.search ldap, opts
+		args = [
+			opts.fetch(:base,        ''),
+			opts.fetch(:scope,       LDAP::LDAP_SCOPE_SUBTREE),
+			opts.fetch(:filter,      '(objectClass=*)'),
+			opts.fetch(:attrs,       ['*', '+']),
+			(not opts.fetch(:vals,   true)),
+			opts.fetch(:serverctrls, nil),
+			opts.fetch(:clientctrls, nil),
+			opts.fetch(:sec,         0),
+			opts.fetch(:usec,        0),
+			opts.fetch(:s_attr,      0),
+			opts.fetch(:s_proc,      ''),
+		]
+		res = ldap.search_ext2 *args
+		res.each { |e| yield e } if block_given?
+		res
+	end
+
 	attr_reader :ldap, :root_dse, :schema
 	def initialize
 		@schema = LDAP::Server::Schema.new
-		SPECIAL_ATS.each { |name,at| @schema.add_attrtype format(name, at) }
+		SPECIAL_ATS.each { |name, at| @schema.add_attrtype format(name, at) }
 		ldap = LDAP::Conn.new self.class.host, self.class.port
 		ldap.set_option LDAP::LDAP_OPT_PROTOCOL_VERSION, 3
 		ldap.bind do |ldap|
@@ -25,6 +44,7 @@ class Upstream
 			{add_attrtype: 'attributeTypes', add_objectclass: 'objectClasses'}.each { |meth,id| ssse[id].each { |str| @schema.send meth, str unless str.start_with? FILTER_PREFIX } }
 		end
 		@schema.resolve_oids
+		user_init
 	end
 
 	def bind version, dn, password
@@ -67,6 +87,9 @@ protected
 		STDERR.reopen saved
 		saved.close
 	end
+
+	# Patch this method to do something useful right after initialization
+	def user_init; end
 
 end
 end

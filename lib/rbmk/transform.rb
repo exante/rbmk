@@ -6,7 +6,7 @@ module Transform
 	# :version              LDAP protocol version; should probably be 3
 	# :dn                   Bind DN; like a "username"
 	# :password             Cleartext! Verrrry sensitive!
-	def self.simple_bind opts
+	def self.simple_bind opts, op
 		opts
 	end
 
@@ -19,13 +19,13 @@ module Transform
 	# :attrs                Attributes to be included in resulting objects
 	# :vals                 Whether to include values at all
 	# :limit                Search will not return more than this amount of objects
-	def self.search opts
+	def self.search opts, op
 		opts
 	end
 
 	# Patch this method to transform outbound found entries.
 	# Expect an array of hashes, each of which MUST have a 'dn' key
-	def self.found entries
+	def self.found entries, op
 		entries
 	end
 

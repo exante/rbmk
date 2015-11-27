@@ -5,8 +5,6 @@ class Server
 
 	%w( CHLD INT HUP QUIT TERM ).each { |sig| const_set ('SIG%s' % sig).to_sym, Signal.list[sig] }
 
-	class Reaped < StandardError; end
-
 	def initialize
 		$master = true
 		@arvg0 = File.basename Process.argv0
@@ -56,7 +54,7 @@ protected
 			act_as_a_child_for peer
 		end
 	rescue SignalException
-		$log.debug 'Trapped %p' % $!.signm
+		$log.debug 'Trapped %p' % ($!.signm.empty? ? 'SIGINT' : $!.signm)
 		case $!.signo
 			when SIGCHLD then reap
 			when SIGINT, SIGHUP, SIGTERM then exit
@@ -74,7 +72,7 @@ protected
 		$0 = sprintf '%s worker for %s', @arvg0, peer
 		Timeout.timeout(self.class.worker_timeout) { serve peer } # FIXME shall move to master in the future or maybe drop altogether in favour of activity detection
 	rescue SignalException
-		$log.debug 'Trapped %p' % $!.signm
+		$log.debug 'Trapped %p' % ($!.signm.empty? ? 'SIGINT' : $!.signm)
 		raise $!
 	rescue Exception
 		$!.log
