@@ -32,8 +32,8 @@ RUN
 ---
 As this script is not a daemon, you have two easy options besides anything
 you may invent yourself:
-1. use any supervisor that are plenty nowadays: `supervisord`, `bluepill` etc.
-1. or just run it inside a `tmux` session and leave it there.
+* use any supervisor that are plenty nowadays: `supervisord`, `bluepill` etc.
+* or just run it inside a `tmux` session and leave it there.
 
 USAGE
 -----
@@ -42,5 +42,5 @@ USAGE
 CONFIGURATION
 -------------
 Upon its invocation `rbmk` evals its first argument and thus is configured
-by your Ruby code inside that file. Please refer to `examples/rbmk.rb` for an example
-configuration file.
+by your Ruby code inside that file. Please refer to `examples/rbmk.rb` for
+an example configuration file.
