@@ -9,8 +9,8 @@ LDAP is very rigid and static in its nature and although OpenLDAP provides some
 very helpful overlays, it is far from enough.
 [//]: # (DESCRIPTION STOP)
 
-CAUTION
--------
+☢ CAUTION ☢
+-----------
 Like its name suggests, `rbmk` is somewhat powerful, but is not very stable.
 Expect random meltdowns! Please, **NEVER** run it as superuser. LDAP gems
 that it uses are surprisingly feature-rich, but are not quite polished yet.
@@ -22,7 +22,10 @@ LIMITATIONS
 -----------
 * This proxy is read-only, by design.
 * This script does not detach from its terminal, again by design.
+* Only simple binds, at least until I actually need SASL myself.
+* No TLS for now, but maybe someday.
 * Only tested with MRI 2.2, but will likely work with anything 1.9+.
+* Well, maybe not anything, as it uses [ruby-ldap](https://github.com/bearded/ruby-ldap) (a C extension).
 
 INSTALL
 -------
