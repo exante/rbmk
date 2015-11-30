@@ -58,7 +58,6 @@ end
 
 
 
-require 'rbmk/transform'
 module RBMK
 class Operation < LDAP::Server::Operation
 
@@ -148,10 +147,11 @@ class Operation < LDAP::Server::Operation
 	# Okay, now the actual code
 	#
 	attr_reader :server, :orig, :transformed
-	def initialize conn, mid
+	def initialize conn, mid, worker
 		super conn, mid
 		@orig = {}
 		@transformed = {}
+		@worker = worker
 	end
 
 	def simple_bind version, dn, password
@@ -205,10 +205,38 @@ protected
 
 	def transformed type, object
 		@orig[type] = object
-		@transformed[type] = RBMK::Transform.send type, object, self
+		@transformed[type] = send 'transformed_%s' % type, object
 	rescue
 		$!.log
 		object
+	end
+
+	# Patch this method to transform incoming bind data.
+	# Expect a hash with these keys:
+	# :version              LDAP protocol version; should probably be 3
+	# :dn                   Bind DN; like a "username"
+	# :password             Cleartext! Verrrry sensitive!
+	def transformed_simple_bind opts
+		opts
+	end
+
+	# Patch this method to transform incoming search parameters.
+	# Expect a hash with these keys:
+	# :base                 Search base DN
+	# :scope                0 is base, 1 is onelevel, 2 is subtree
+	# :deref                whether to follow aliases (no time to explain, read more otherwhere)
+	# :filter_array         IMPORTANT: this is a parsed filter from Ldap::Server as an array-tree
+	# :attrs                Attributes to be included in resulting objects
+	# :vals                 Whether to include values at all
+	# :limit                Search will not return more than this amount of objects
+	def transformed_search opts
+		opts
+	end
+
+	# Patch this method to transform outbound found entries.
+	# Expect an array of hashes, each of which MUST have a 'dn' key
+	def transformed_entries entries
+		entries
 	end
 
 end

@@ -9,7 +9,6 @@ Gem::Specification.new do |s|
 		'lib/rbmk/operation.rb',
 		'lib/rbmk/peer.rb',
 		'lib/rbmk/server.rb',
-		'lib/rbmk/transform.rb',
 		'lib/rbmk/upstream.rb',
 		'lib/rbmk/version.rb',
 		'lib/rbmk/worker.rb',

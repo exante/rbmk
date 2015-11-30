@@ -1,4 +1,4 @@
 module RBMK
-	VERSION = '0.1.0.e'
-	CODENAME = 'never again'
+	VERSION = '0.1.0.f'
+	CODENAME = 'post rock party'
 end

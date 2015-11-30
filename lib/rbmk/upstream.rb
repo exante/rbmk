@@ -55,6 +55,14 @@ class Upstream
 		handle_ldap_error
 	end
 
+	def unbind
+		@ldap.unbind
+	end
+
+	def search opts, &block
+		self.class.send __method__, @ldap, opts, &block
+	end
+
 	def handle_ldap_error
 		stderr = from_stderr { @ldap.perror 'LDAP' }                        # WHY U NO?
 		message = stderr.match(/additional info:(.*)$/)[1].strip rescue nil # Seriously, how hard can it be to expose a server's message?
