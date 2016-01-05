@@ -98,6 +98,7 @@ protected
 	def reap
 		loop {
 			pid, status = Process.wait2 -1, Process::WNOHANG
+			raise Errno::ECHILD if pid.nil?
 			@workers.delete pid
 			$log.debug 'Reaped %s' % pid
 		}
