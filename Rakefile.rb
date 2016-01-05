@@ -1,4 +1,3 @@
-#spec = eval(open('gemspec') { |fd| fd.read })
 specfn = 'gemspec'
 spec = Gem::Specification.load specfn
 gfn = sprintf('%s-%s.gem', spec.name, spec.version)

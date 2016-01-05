@@ -1,4 +1,3 @@
-require 'timeout'
 require 'rbmk/peer'
 module RBMK
 class Server
@@ -35,7 +34,6 @@ protected
 
 	def self.host; '127.0.0.1' end
 	def self.port; 8389 end
-	def self.worker_timeout; 600 end # (in seconds) this is not per single request, this is for the whole session
 
 	def self.upstream
 		require 'rbmk/upstream'
@@ -70,7 +68,7 @@ protected
 		$master = false
 		remove_instance_variable :@workers
 		$0 = sprintf '%s worker for %s', @arvg0, peer
-		Timeout.timeout(self.class.worker_timeout) { serve peer } # FIXME shall move to master in the future or maybe drop altogether in favour of activity detection
+		serve peer
 	rescue SignalException
 		$log.debug 'Trapped %p' % ($!.signm.empty? ? 'SIGINT' : $!.signm)
 		raise $!
@@ -98,11 +96,12 @@ protected
 	end
 
 	def reap
-		pid, status = Process.wait2 -1, Process::WNOHANG
-		@workers.delete pid
-		$log.debug 'Reaped %s' % pid
+		loop {
+			pid, status = Process.wait2 -1, Process::WNOHANG
+			@workers.delete pid
+			$log.debug 'Reaped %s' % pid
+		}
 	rescue Errno::ECHILD
-		$log.debug 'Something went wrong, no dead workers to reap'
 	end
 
 end
