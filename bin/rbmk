@@ -3,7 +3,7 @@
 cfn = ARGV.first
 if cfn.nil? or cfn.empty? then
 	require 'rbmk/version'
-	printf "rbmk version %s codename '%s' (github/stronny/rbmk)\n", RBMK::VERSION, RBMK::CODENAME
+	printf "rbmk version %s codename '%s' (github/exante/rbmk)\n", RBMK::VERSION, RBMK::CODENAME
 	puts "Usage: #{File.basename $0} FILENAME"
 	exit
 end

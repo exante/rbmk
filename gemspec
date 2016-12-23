@@ -23,9 +23,9 @@ Gem::Specification.new do |s|
 	s.has_rdoc = false
 	s.license = 'CC0'
 	s.required_ruby_version = '>= 1.9.0'
-	s.author = 'stronny red'
-	s.email = 'stronny@celestia.ru'
-	s.homepage = 'https://github.com/stronny/rbmk'
+	s.author = 'XNT Ltd.'
+	s.email = 'ops-team@exante.eu'
+	s.homepage = 'https://github.com/exante/rbmk'
 	s.add_dependency 'ruby-ldap', '~> 0.9.17'
 	s.add_dependency 'ruby-ldapserver', '~> 0.5.3'
 end

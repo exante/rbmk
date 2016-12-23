@@ -1,4 +1,4 @@
 module RBMK
-	VERSION = '0.1.0'
-	CODENAME = 'vostok'
+	VERSION = '0.1.1'
+	CODENAME = 'supercriticality'
 end
